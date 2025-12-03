@@ -1,0 +1,279 @@
+---
+title: "Imputación de datos usando el paquete MICE"
+author: "Kevin J. Paez"
+format: html
+Integrantes: 
+●MARÍA LUCIA JACOBO ATUNCAR  
+●GAMBOA CANALES MARIPAZ  
+●ARIANA ABIGIAL VIDAL ROMUCHO 
+●FERNANDA GIANELLA CASTILLA SALVADOR  
+●SEBASTIAN PALOMINO ROJAS  
+●KRISTY STEFANY ALVAREZ PEVES
+Basededatos: cirrosis.csv
+---
+
+## Instalar y cargar los paquetes
+
+```{r}
+install.packages("mice")
+install.packages("ggmice")
+```
+
+```{r}
+library(mice)
+library(tidyverse)
+library(here)
+library(rio)
+library(ggmice)
+library(gtsummary)
+```
+
+## 1 Datos perdidos en investigación en salud
+
+Es común encontrar datos faltantes en un conjunto de datos. Por ejemplo, al recolectar información a partir de historias clínicas de pacientes en un hospital, algunas variables pueden no estar disponibles porque no fueron medidas, anotadas o solicitadas por el personal de salud. En otro escenario, en estudios que utilizan encuestas, es posible que las personas encuestadas no respondan ciertas preguntas o que las respuestas sean ininteligibles.
+
+Cuando se aplican métodos de regresión en investigaciones en ciencias de la salud, la práctica habitual consiste en eliminar las observaciones que contienen datos faltantes. Esta técnica se conoce como análisis de casos completos, y muchos paquetes estadísticos la implementan por defecto.
+
+## 2 Imputación de datos
+
+Siempre es preferible utilizar todas las observaciones en un análisis de regresión, ya que esto permite obtener estimaciones más precisas y cercanas a la realidad. En esta sesión, aplicaremos una técnica llamada imputación, que consiste en reemplazar los datos perdidos con una estimación de su valor verdadero.
+
+Esta no es una técnica reciente. Enfoques anteriores de imputación —como, por ejemplo, reemplazar los valores perdidos con el promedio de la variable— han sido ampliamente utilizados, pero presentan limitaciones. Estas limitaciones han sido superadas por una técnica más moderna y actualmente muy popular: la imputación múltiple de datos.
+
+## 3 El dataset para este ejercicio
+
+Para ilustrar el proceso de imputación múltiple de datos, utilizaremos el conjunto de datos `data_sm`. Este dataset incluye información de 418 pacientes adultos. Las variables registradas : **ID, Dias_Seguimiento , Estado , Medicamento , Edad, Sexo , Ascitis , Hepatomegalia , Aracnoides ,Edema, Bilirrubina ,Colesterol , Albumina , Cobre, Fosfatasa_Alcalina , SGOT , Trigliceridos, Plaquetas , Tiempo_Protrombina, Etapa** , entre otras. Algunos participantes presentan valores faltantes en al menos una de estas variables.
+
+**Cargando los datos**
+
+```{r}
+data_sm <- import(here("cirrosis.csv"))
+```
+
+**Un vistazo a los datos**
+
+```{r}
+head(data_sm)
+```
+
+## 4 Realizando la imputación de datos
+
+### 4.1 ¿Donde estan los valores perdidos?
+
+Es importante saber en qué variables se encuentran los datos antes de iniciar la inputación. Una forma rápida es usando la función `colSums()` es `is.na()`.
+
+```{r}
+colSums(is.na(data_sm))
+```
+
+Incluso mejor, podemos visualizar los datos perdidos en un mapa de calor usando la función `plot_pattern()` de **ggmice**.
+
+```{r}
+data_sm |>
+  select(ID , Dias_Seguimiento , Estado ,Medicamento , Sexo ,Ascitis , Hepatomegalia ,Aracnoides ,Colesterol) |>
+  ggmice::plot_pattern(
+    square = TRUE,
+    rotate = TRUE)
+```
+
+El número total de valores perdidos en el dataset data_sm es de 43. Las variables `sindrom_metabolico`, `imc` y `glucosa` tienen 8, 13 y 22 valores perdidos, respectivamente. Hay 6 pacientes quienes tienen valores perdidos en dos variables.
+
+### 4.2 Comparación de participantes con y sin valores perdidos
+
+Una buena práctica antes de iniciar la imputación de datos es también evaluar cómo difieren los valores de las otras variables entre el grupo de participantes con valores perdidos y el grupo sin valores perdidos. Esto es importante debido a que puede darnos pistas de si en realidad es necesaria la imputación o, dicho de otra forma, si es seguro usar el análisis de casos completos. ¿Cómo? si la distribución de las otras variables no difiere entre el grupo con valores perdidos y el grupo sin valores perdidos, entonces no es necesario la imputación de datos. Evaluemos esto en nuestro dataset para la variable `glucosa` e `imc`
+
+```{r}
+tabla_ID = data_sm |> 
+  dplyr::select(ID , Dias_Seguimiento , Estado ,Medicamento , Sexo ,Ascitis , Hepatomegalia ,Aracnoides ,Colesterol) |>
+  mutate(missing = factor(
+    is.na(ID),
+    levels = c(FALSE, TRUE),
+    labels = c("Sin valores perdidos", "Con valores perdidos")
+  )) |> 
+  tbl_summary(
+    by = missing,
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})",
+      all_categorical() ~ "{n}    ({p}%)")
+    ) |> 
+  modify_header(label = "**Variable**",
+                all_stat_cols() ~ "**{level}**<br>N = {n} ({style_percent(p, digits=1)}%)") |> 
+  modify_caption("Características de los participantes segun valor perdido") |> 
+  bold_labels()
+
+tabla_Colesterol = data_sm |> 
+  dplyr::select(ID , Dias_Seguimiento , Estado ,Medicamento , Sexo ,Ascitis , Hepatomegalia ,Aracnoides ,Colesterol) |>
+  mutate(missing = factor(
+    is.na(Colesterol),
+    levels = c(FALSE, TRUE),
+    labels = c("Sin valores perdidos", "Con valores perdidos")
+  )) |> 
+  tbl_summary(
+    by = missing,
+    statistic = list(
+      all_continuous()  ~ "{mean} ({sd})",
+      all_categorical() ~ "{n}    ({p}%)")
+    ) |> 
+  modify_header(label = "**Variable**",
+                all_stat_cols() ~ "**{level}**<br>N = {n} ({style_percent(p, digits=1)}%)") |> 
+  modify_caption("Características de los participantes segun valor perdido") |> 
+  bold_labels()
+
+tabla <- tbl_merge(
+  tbls = list(tabla_ID, tabla_Colesterol),
+  tab_spanner = c("**numero_caso**", "**leucocitos_sangre**")
+)
+```
+
+```{r}
+tabla
+```
+
+Nota que el promedio y desviación estandard, para algunas variables, varían en la comparación del grupo con variables perdidas y completas.
+
+### 4.3 ¿Qué variables debo incluir en el proceso de imputación?
+
+Debemos incluir todas las variables que se utilizarán en los análisis posteriores, incluso aquellas que no presentan valores perdidos. La razón es que el modelo de imputación debe ser *tan complejo como el análisis que se realizará posteriormente*. De lo contrario, se perderá información relevante de las demás variables. Además, aunque algunas variables no tengan valores faltantes, su inclusión en el modelo de imputación es útil porque aportan información que mejora la estimación de los valores imputados. Recuerda además que las variables categóricas deben ser de tipo factor. El código de abajo selecciona las variables y transforma la variable `sindrom_metabolico` a factor.
+
+```{r}
+input_data =
+  data_sm |>
+    dplyr::select(ID , Dias_Seguimiento , Estado ,Medicamento , Sexo ,Ascitis , Hepatomegalia ,Aracnoides ,Colesterol) |> 
+  mutate(ID = as.factor(Colesterol))
+```
+
+### 4.4 La función `mice()` para imputar datos
+
+Para imputar datos utilizaremos la función `mice()` del paquete del mismo nombre. Entre sus argumentos, debemos especificar:
+
+-   el número de imputaciones con `m`,
+-   una semilla (`seed`) para que los resultados sean reproducibles, y
+-   el método de imputación con `method`.
+
+Con respecto a este último argumento, emplearemos el método `"pmm"` para variables continuas y `"logreg"` para variables binarias. Para las variables que **no presentan valores perdidos**, simplemente se colocan comillas vacías (`""`).
+
+Cabe recalcar que el conjunto de datos contiene 9 variables, de las cuales 3 presentan valores perdidos, y las variables se encuentran en el siguiente orden.
+
+```{r}
+names(input_data)
+```
+
+El método de imputación la indicaremos con el argumento `method` en el mismo orden que aparecen las variables en el dataset.
+
+```{r}
+data_imputada =
+  mice(
+    input_data,
+    m = 20,
+    method = c(
+      "",
+      "",
+      "",
+      "pmm",
+      "",
+      "pmm",
+      "",
+      "",
+      "logreg"),
+    maxit = 20,
+    seed = 3,
+    print = F
+    )
+```
+
+```{r}
+data_imputada
+```
+
+El resultado de la imputación se ha guardado en el objeto data_imputada y muestra que es un objeto de clase mids (multiply imputed dataset), el número de imputaciones (20), el método de imputación para todas las variables, y en una matriz, cuales variables han sido usadas para predecir otras.
+
+## 5 Analizando los datos imputados
+
+Antes de realizar análisis adicionales al dataset imputado, es necesario explorar los datos imputados. Idealmente, los valores imputados deben ser plausibles en comparación con los valores observados. Podemos observar esto en un gráfico de cajas y bigotes de la distribución de los datos imputados (20) versus los datos sin imputar.
+
+Para la variable Colesterol
+
+```{r}
+ggmice(data_imputada, aes(x = ID, y = Colesterol)) +
+  geom_jitter(height = 0, width = 0.25) +
+  geom_boxplot(width = 0.5, size = 1, alpha = 0.55, outlier.shape = NA) +
+  labs(x = "Imputation number")
+```
+
+Para la variables Hepatomegalia
+
+```{r}
+ggmice(data_imputada, aes(x = ID, y = Hepatomegalia)) +
+  geom_jitter(height = 0, width = 0.25) +
+  geom_boxplot(width = 0.5, size = 1, alpha = 0.55, outlier.shape = NA) +
+  labs(x = "Imputation number")
+```
+
+Con esta función, los datos observados se encuentran al inicio (azul), y los demás boxplots corresponden a los datos imputados (20). Para ambos casos, los datos imputados estan dentro del rango de los valores observados, son plausibles.
+
+Para datos categóricos, podemos crear una tabla de dos entradas comparando la distribución de la variable con datos completos e incompletos. Esto requiere primero crear la versión "long" de la data imputada.
+
+```{r}
+data_imputada_l <- complete(data_imputada, "long", include = TRUE)
+```
+
+Ahora la tabla.
+
+```{r}
+data_imputada_l <- data_imputada_l %>% 
+  mutate(imputed = .imp > 0,
+         imputed = factor(imputed,
+                          levels = c(F,T),
+                          labels = c("Observado", "Imputado")))
+
+prop.table(table(data_imputada_l$Colesterol,
+                 data_imputada_l$Hepatomegalia),
+           margin = 2)
+```
+
+Idealmente los dos primero número luego del decimal, debe ser similares entre datos observados e imputados.
+
+### 5.1 Procedimientos adicionales luego de la imputación
+
+El procedimiento estándar para realizar un análisis de regresión después de la imputación consiste en utilizar la función `with()` para ajustar el modelo de regresión al objeto `mids` (por ejemplo, `data_imputada`). Posteriormente, se emplea la función `pool()` para obtener los resultados combinados, como se suele presentar en la sección de resultados.
+
+No obstante, si se hace uso del paquete **gtsummary**, este y sus funciones manejan internamente el agrupamiento de las imputaciones, por lo que solo es necesario utilizar la función `with()`. A continuación, se muestra un ejemplo de regresión logística multivariada con los datos imputados, tal como lo realizaste anteriormente.
+
+Recuerda que es posible realizar cualquier tipo de análisis de regresión o (con procedimientos adicionales) pruebas inferenciales a partir de los datos imputados.
+
+```{r}
+data_Colesterol <- factor(data_imputada$Colesterol, levels = c(0, 1))
+
+```
+
+```{r}
+str(data_imputada$Colesterol)
+table(data_imputada$Hepatomegalia)
+
+```
+
+```{r}
+tabla_multi <-
+  data_imputada |> 
+  with(glm(ID  ~ Dias_Seguimiento  + Estado  +Sexo + Ascitis  + Hepatomegalia  + Aracnoides + Colesterol ,
+           family = binomial(link = "logit"))) |> 
+  tbl_regression(exponentiate = TRUE,
+                 label = list(
+                   Dias_Seguimiento  ~ "DIAS",
+                   Estado ~ "FallecidO/Censurado_trasplante/Censurado",
+                   Sexo ~ "Mujer/Hombre",
+                   Ascitis ~ "SI/NO",
+                   Hepatomegalia ~ "SI/NO",
+                   Aracnoides  ~ "SI/NO",
+                   Colesterol  ~ "mg/dL")) |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR ajustado**", p.value = "**p valor** ")
+```
+
+```{r}
+tabla_multi
+```
+
+```         
+[1] "ID"               "Dias_Seguimiento" "Estado"           [4] "Medicamento"      "Sexo"             "Ascitis"          [7] "Hepatomegalia"    "Aracnoides"       "Colesterol"
+```
