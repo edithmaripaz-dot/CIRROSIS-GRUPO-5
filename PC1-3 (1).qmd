@@ -1,0 +1,291 @@
+---
+title: "Manejo de variables"
+Participantes:
+"MARÍA LUCIA JACOBO ATUNCAR 
+GAMBOA CANALES MARIPAZ 
+ARIANA ABIGIAL VIDAL ROMUCHO 
+FERNANDA GIANELLA CASTILLA SALVADOR 
+SEBASTIAN PALOMINO ROJAS 
+KRISTY STEFANY ALVAREZ PEVES"
+format: html
+editor: visual
+---
+
+## Instalar paquetes
+
+```{r}
+# install.packages("tidyverse")
+# install.packages("rio")
+# install.packages("here")
+# install.packages("janitor")
+# install.packages("skimr")
+# install.packages("visdat")
+```
+
+## Cargar paquetes
+
+```{r}
+library(tidyverse)
+library(rio)
+library(here)
+library(janitor)
+```
+
+## Importando s02_treat_artritis.csv usando el paquete rio
+
+```{r}
+cirrosis= import(here("D:/ALFRE/UPSJB 2025/2025-2/R STUDIO/cirrosis.csv"))
+```
+
+## Vistazo al contenido
+
+### ¿Cuántas variables y observaciones hay?
+
+El primer número indica el número de filas, el segundo, el número de columnas.
+
+```{r}
+dim(cirrosis)
+```
+
+### ¿Cuantas y qué tipos de variables hay?
+
+```{r}
+str(cirrosis)
+```
+
+Una función similar
+
+```{r}
+dplyr::glimpse(cirrosis)
+```
+
+Estadísticos descriptivos y otros parámetros para exploración de datos
+
+```{r}
+skimr::skim(cirrosis)
+```
+
+Resumen por variable
+
+```{r}
+summary(cirrosis)
+```
+
+### Visualmente
+
+```{r}
+View(cirrosis)
+```
+
+```{r}
+visdat::vis_dat(cirrosis)
+```
+
+![](images/clipboard-9133593.png)
+
+```{r}
+datos <- read.csv(gzfile("D:/ALFRE/UPSJB 2025/2025-1/SISTEMATIZACIÓN Y MÉTODOS ESTADÍSTICOS/R STUDIO/ESTADISTICA/data_ESTUDIANTE/grupo 9 -artritis/SANGRE/almac_sangre.csv"), header = TRUE, sep = ",")
+
+```
+
+```{r}
+DataExplorer::create_report(cirrosis)
+```
+
+# Limpieza de datos
+
+## Paso uno: corregir los nombres de variables.
+
+Clean names es una función del paquete janitor
+
+```{r}
+cirrosis_1 = clean_names(cirrosis)
+```
+
+Nota el constraste (la función `names()` imprime los nombres de columnas de un *dataset*)
+
+```{r}
+names(cirrosis_1)
+```
+
+```{r}
+names(cirrosis_1)
+```
+
+## Paso dos: convertir celdas vacías a NA
+
+```{r}
+cirrosis_1 = mutate_if(cirrosis_1, is.character, list(~na_if(.,"")))
+```
+
+## Paso tres: eliminar columnas o filas vacias.
+
+```{r}
+cirrosis_2= remove_empty(cirrosis_1, which = c("rows", "cols"))
+```
+
+## Optimizando el código
+
+### Corregir nombres, celdas vacías a NA y eliminar columnas o filas vacías.
+
+```{r}
+cirrosis_1 = cirrosis |> 
+  clean_names() |> 
+  mutate_if(is.character, list(~ na_if(., ""))) |> 
+  remove_empty(which = c("rows", "cols"))
+```
+
+## Paso 4: corregir errores ortográficos o valores inválidos
+
+### Inspección tabular
+
+```{r}
+cirrosis |> count(Dias_Seguimiento) # Cambia de variable categórica
+```
+
+Transformando de data.frame a as tibble
+
+```{r}
+cirrosis_2 = as_tibble(cirrosis_1)
+```
+
+Corregir errores ortográficos usando `mutate()` y `case_when()`
+
+```{r}
+cirrosis_2 = cirrosis_1 |> 
+  mutate(estado = case_when(
+    estado == "Censurado" ~ "censura", 
+    estado == "Censurado_trasplante" ~ "censura_2", 
+    estado == "Fallecido" ~ "fallecido",
+    TRUE ~ estado))
+```
+
+Un vistazo a la variable de interés
+
+```{r}
+cirrosis |> count(Estado)
+```
+
+Comprobando el cambio
+
+```{r}
+cirrosis_2 |> count(estado)
+```
+
+## Paso 6: Transformar una variable
+
+Transformación a logaritmo
+
+```{r}
+summary(cirrosis_2$dias_seguimiento)
+```
+
+```{r}
+hist(cirrosis_2$dias_seguimiento)
+```
+
+```{r}
+cirrosis_3 <- cirrosis_2 |>  
+  mutate(dias_seguimiento = (log(dias_seguimiento + 1)))
+
+```
+
+```{r}
+```
+
+```{r}
+cirrosis_3 |>  
+  ggplot(aes(x = dias_seguimiento)) +
+  geom_histogram(bins = 10) +
+  labs(y = "Frecuencia", x = "log(años desde el diagnóstico + 1)")
+```
+
+Transformación a binario
+
+```{r}
+data = cirrosis_3 |>
+  mutate(
+    tiempo_desde_dx_c = case_when(
+      edad <  10 ~ "< 10",
+      edad >= 10 ~ ">= 10"
+    )
+  ) |>
+  mutate(tiempo_desde_dx_c = factor(tiempo_desde_dx_c, levels = "< 10", ">= 10"))
+```
+
+Transformando valores a valores perdidos usando la función `na_if()`
+
+```{r}
+cirrosis_4 = cirrosis_3 |> 
+  mutate(dias_seguimiento = na_if(dias_seguimiento, -7))
+```
+
+Transformando valores a valores perdidos usando la función `case_when()`
+
+```{r}
+cirrosis_5 = cirrosis_4 |> 
+  mutate(ID = case_when(dias_seguimiento %in% c(3, 999) ~ NA,
+                            TRUE ~ edad_a))
+```
+
+## Paso 7: Renombrar una variable
+
+Imprimir los nombres. ¿Cuáles necesitann cambio?
+
+```{r}
+names(cirrosis_3)
+```
+
+Cambiando un nombre de variables
+
+```{r}
+cirrosis_3 <- cirrosis_2 |>  
+  rename( estado = etapa)
+```
+
+Comprobando
+
+```{r}
+names(cirrosis_3)
+```
+
+```{r}
+DataExplorer::create_report(cirrosis_4)
+```
+
+```{r}
+colnames(cirrosis_4)
+```
+
+```{r}
+class(cirrosis_4)
+```
+
+```{r}
+summary(cirrosis_4)
+```
+
+```{r}
+library(ggplot2)
+library(ragg)
+```
+
+```{r}
+DataExplorer::create_report(cirrosis_4)
+```
+
+```{r}
+names(cirrosis_4)
+```
+
+```{r}
+hist(cirrosis_4$dias_seguimiento)
+```
+
+```{r}
+hist(cirrosis_4$estado)
+```
+
+```{r}
+hist(cirrosis_4$etapa)
+```

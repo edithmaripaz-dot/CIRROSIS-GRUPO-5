@@ -1,0 +1,336 @@
+---
+title: "Regresión Lineal Simple y prueba t de Student"
+grupo: 
+participantes:
+MARÍA LUCIA JACOBO ATUNCAR 
+GAMBOA CANALES MARIPAZ 
+ARIANA ABIGIAL VIDAL ROMUCHO 
+FERNANDA GIANELLA CASTILLA SALVADOR 
+SEBASTIAN PALOMINO ROJAS 
+KRISTY STEFANY ALVAREZ PEVES
+basededatos: cirrosis.csv
+editor: visual
+---
+
+# Cargar e instalar paquetes
+
+```{r}
+install.packages("car") # Para la prueba de Levene
+```
+
+```{r}
+library(tidyverse)
+library(here)
+library(rio)
+library(gtsummary)
+library(car)
+library(ggplot2)
+```
+
+# Cargando los datos
+
+```{r}
+circun_glucosa <- import(here("cirrosis.csv"))
+```
+
+# Sobre los datos para esta práctica
+
+El dataset circun_glucosa, de 1000 personas adultas (\>=20 años de edad), contiene datos glucosa medida en ayunas (en mg/dL), cirunferencia de cintura (en centimetros), tabaquismo y otros datos demográficos.
+
+```{r}
+names(cirrosis)
+```
+
+## 1.1 El problema en este ejercicio
+
+El desenlace *Y* de interés para este ejercicio es la variable glucosa medida en ayunas. Veamos la distribución de la variable y el promedio en en un histograma.
+
+```{r}
+cirrosis |>  
+  ggplot(aes(x = Colesterol)) +
+  geom_histogram(
+    color = "white",
+    ) + 
+  labs(y = "Frecuencia", 
+       x = "resultados") +
+  geom_vline(xintercept = mean(cirrosis$Colesterol, na.rm = TRUE),
+             color = "darkorange", size = 1.5)
+```
+
+En estos datos, el promedio de la glucosa es:
+
+```{r}
+mean(cirrosis$Colesterol, na.rm = TRUE)
+```
+
+Una observación importante a partir del histograma y el promedio (el valor esperado) es que existe una gran variación entre los valores de glucosa de los individuos de quienes provienen los datos. Podemos hipotetizar de que otras variables (predictores) podrían influir en esta variación, por ejemplo, la circunferencia de cintura.
+
+## 1.2 Notación en el método de regresión lineal simple
+
+```{r}
+plot(ID ~ Colesterol , data = cirrosis,
+     col = "gray",
+     ylab = "Leucocitos",
+     xlab = "edad",
+     las = 1,
+     pch = 20, 
+     font.lab = 2, font.axis = 2) 
+
+# La función lm() ajusta el modelo de regresión lineal
+abline(lm(ID ~ Colesterol , data = cirrosis), lwd = 2, col = "brown")
+```
+
+La ecuación siguiente ecuación describe un modelo de regresión lineal simple para 𝑌 usando un predictor continuo 𝑋. $$
+Y = \beta_0 + \beta_1 X + \epsilon
+$$ Cuando ajustamos un modelo de regresión lineal simple a nuestros datos, estimamos (hallamos) los parámetros del modelo que mejor explican la relación entre las dos variables (desenlace y predictor), incluyendo los coeficientes (β₀, β₁) y el error (𝜀), que representa la variabilidad no explicada por el modelo.
+
+Para un predictor continuo, el intercepto (β₀) es el valor esperado de Y cuando X = 0 (es decir, el promedio del resultado cuando el predictor es cero). La pendiente (β₁) es el cambio promedio en Y por cada unidad de cambio en X. El término de error (𝜀) representa la diferencia entre los valores observados y los valores predichos por el modelo.
+
+Aplicado a nuestro ejemplo, el intercepto (β₀) representa la circunferencia de cintura promedio cuando la glucosa en ayunas es cero (aunque este valor puede no tener sentido práctico, es necesario matemáticamente). La pendiente (β₁) indica cuánto aumenta (o disminuye) en promedio la circunferencia de la cintura por cada unidad adicional de glucosa en ayunas (medida en mg/dL). El error (𝜀) recoge la variación individual que no es explicada solo por la glucosa.
+
+Asi que, como el objetivo es hallar los valores de los parámetros (β₀,β₁,𝜀), es apropiado decir que estamos 'ajustando el modelo de regresión lineal simple' para el problema planteado (a.k.a la asociación entre glucosa y la circunferencia de cintura)
+
+## 1.3 Ajustando el modelo de regresión lineal simple para nuestro problema
+
+En R, usamos la función lm() para ajustar un modelo de regresión lineal. "lm" es la abreviatura para "linear model". Dentro de la función debemos indicarle como argumentos el desenlace X, el predictor Y y la data donde se encuentran las variables. Esta es la estructura para ajustar el modelo con la función lm: lm(y \~ x, data = mis_datos).
+
+Ajustando el modelo para nuestros datos
+
+```{r}
+modelo_ejemplo = lm(ID ~ Colesterol, data = cirrosis)
+```
+
+Para ver los resultados, usamos la función summary() y dentro, el objeto modelo_ejemplo.
+
+```{r}
+summary(modelo_ejemplo)
+```
+
+## 1.4 Interpretando los resultados
+
+La sección Coefficients del resultado:
+
+```{r}
+summary(modelo_ejemplo)$coef
+```
+
+...muestra las estimaciones y las pruebas de hipótesis para el intercepto (β₀), etiquetado como (Intercept), y para el coeficiente de la circunferencia de cintura (la pendiente, β₁), etiquetado como Circunfe_brazo_cm.
+
+En esta misma sección, la columna Estimate muestra los coeficientes estimados del modelo de regresión lineal simple. Así, el modelo que mejor se ajusta tiene un intercepto de 59.474 y una pendiente de 0.49970.
+
+La tabla de coeficientes también muestra el error estándar de cada estimación, su valor t y su valor p (etiquetado como Pr(\>\|t\|)). El valor p del intercepto usualmente no es de interés, pero el valor p del predictor (Circunfe_brazo_cm) prueba la hipótesis nula de que el desenlace NO tiene asociación con el predictor o, dicho de otra manera, que la pendiente es cero. La hipótesis nula plantea que la línea de mejor ajuste es una línea horizontal, lo que indicaría que el promedio esperado del desenlace es el mismo en todos los valores del predictor; es decir, que no existe asociación entre el desenlace (glucosa) y el predictor (circunferencia de cintura).
+
+Finalmente, el valor R-cuadrado es una medida de bondad de ajuste que varía entre 0 (sin asociación) y 1 (asociación lineal perfecta), y corresponde al cuadrado de la correlación de Pearson entre el desenlace y el predictor. Se interpreta como la proporción de la variación en el desenlace que es explicada por el modelo. En nuestro modelo, el R² (R-cuadrado) es 0.0871. Esto significa que aproximadamente el 8.6% de la variación en los valores de glucosa en ayunas se explica por la circunferencia de la cintura
+
+## 1.5 ¿Cómo reportar los resultados del ajuste del modelo de regresión lineal simple?
+
+Tanto si se trata de una tesis o un artículo, abajo un ejemplo de cómo reportar los resultados del presente problema:
+
+Adicionalmente, es buena idea presentar los resultados en un tabla.
+
+```{r}
+theme_gtsummary_language("es")
+
+tabla_reporte <- modelo_ejemplo |> 
+  tbl_regression(intercept = T, estimate_fun = function(x) style_sigfig(x, digits = 4),
+                 pvalue_fun   = function(x) style_pvalue(x, digits = 3),
+                 label = list(Colesterol ~ "volumen Colesterol")) |>
+  modify_caption("resultado de colesterol")
+
+tabla_reporte
+```
+
+**Exportamos la tabla**
+
+```{r}
+tabla_reporte |> 
+  as_flex_table()  |> 
+  flextable::save_as_docx(path = "tabla_reporte.docx")
+```
+
+# 2 Prueba t de Student para muestras independientes
+
+Imagina que, ahora, luego de haber tomado las mediciones de medidas de glucosa en ayunas (mg/dL) queremos saber si el promedio de glucosa en varones es significativamente diferente del promedio de glucosa en mujeres. Es esta situación, hay dos grupos (varones y mujeres) de muestras independientes.
+
+## 2.1 ¿Cuándo usar la prueba t de Student para muestras independientes?
+
+-   Cuando los dos grupos de muestras a comparar han sido muestreadas de una distribución normal. Aquí podemos usar la prueba de Shapiro-Wilk.
+
+-   Cuando las varianzas de los dos grupos son iguales. Esto puede ser evaluado con la prueba F.
+
+Usualmente, la hipótesis de la prueba t de Student son:
+
+-   Hipótesis nula (H₀): No hay diferencia entre las medias de los dos grupos. $$
+    H_0: \mu_1 = \mu_2
+    $$
+-   Hipótesis alternativa (H₁): Hay una diferencia entre las medias de los dos grupos. $$
+    H_1: \mu_1 \neq \mu_2
+    $$
+
+## 2.2 Sobre los datos para esta práctica
+
+El dataset circun_glucosa, de 1000 personas adultas (\>=20 años de edad), contiene datos circunferencia de cintura (en centímetros), la variable sexo y otros datos demográficos.
+
+## 2.3 Resumen y visualización
+
+Resumen
+
+Antes de realizar la prueba t de Student es importante conocer la distribución de los datos e identificar si hay valores perdidos o atípicos. Empecemos por el resumen:
+
+```{r}
+group_by(cirrosis, Edema) |> 
+  summarise(
+    count = n(),
+    mean = mean(Ascitis, na.rm = TRUE),
+    sd = sd(Colesterol, na.rm = TRUE)
+  )
+```
+
+Visualización
+
+```{r}
+cirrosis |>  
+  filter(!is.na(Colesterol)& !is.na(Edema))  |> 
+  ggplot(aes(y = Colesterol, x = Edema)) +
+  geom_boxplot() +
+  labs(y = "nivel de colesterol", x = "tipo de edema")
+```
+
+## 2.4 Pruebas preliminares para evaluar los supuestos de la prueba t de Student
+
+Supuesto 1: los datos deben haber sido muestreados de una distribución normal.
+
+Para esto, usamos la prueba de Shapiro-wilk.
+
+```{r}
+cirrosis |> 
+  filter(Edema == "Severo") |> 
+  summarise(shapiro = list(shapiro.test(Plaquetas))) |> 
+  pull(shapiro)
+```
+
+```{r}
+cirrosis |> 
+  filter(Edema == "Ausente") |> 
+  summarise(shapiro = list(shapiro.test(Plaquetas))) |> 
+  pull(shapiro)
+```
+
+Supuesto 2: Las varianzas de los dos grupos son iguales Para esto podemos usar la prueba F para evaluar la homogeneidad de varianzas. Esto esta implementado en la función var.test()
+
+```{r}
+var.test(Plaquetas ~ Aracnoides, data = cirrosis)
+```
+
+El valor p de la prueba F es p = 0.3143. Es mayor que el nivel de significancia α = 0.05. En conclusión, no hay una diferencia significativa entre las varianzas de los dos conjuntos (femenino y masculino) de datos. Por lo tanto, podemos usar la prueba t clásica que asume igualdad de varianzas.
+
+## 2.5 Realizamos la prueba t para nuestros datos.
+
+```{r}
+t.test(Plaquetas ~ Aracnoides, data = cirrosis, var.equal = TRUE)
+```
+
+**Interpretando los resultados**
+
+El valor p de la prueba es 0.003615, lo cual es menor que el nivel de significancia α = 0.05. Por lo tanto, podemos concluir que la circunferencia promedio del brazo en hombres es significativamente diferente de la circunferencia promedio en mujeres.
+
+# 3 Análisis de Varianza (ANOVA)
+
+El análisis de varianza (ANOVA), especificamente el ANOVA de una vía, es una extensión de la prueba t para muestras independientes cuando se comparan medias entre más de dos grupos. En el ANOVA de una vía, los datos se organizan en varios grupos basados en una única variable de agrupación (también llamada variable de factor). En este ejecicio, evaluamos si el peso corporal (kg) es significativamente distinto segun estado de tabaquismo.
+
+## 3.1 ¿Cuándo usar el ANOVA de una vía?
+
+-   Las observaciones se obtienen de forma independiente y aleatoria de la población definida por los niveles del factor.
+
+-   Los datos de cada nivel del factor se distribuyen normalmente.
+
+-   Hipótesis nula (H₀): No hay diferencia entre las medias de los dos grupos.
+
+-   Estas poblaciones normales tienen una varianza común. (Se puede usar la prueba de Levene para verificar esto.)
+
+## 3.2 Sobre los datos para esta práctica
+
+El dataset circun_glucosa, de 1000 personas adultas (\>=20 años de edad), contiene datos de peso corpotal (kg), la variable tabaquismo y otros datos demográficos.
+
+## 3.3 Resumen y visualización
+
+Resumen
+
+Antes de realizar la prueba de ANOVA es importante conocer la distribución de los datos e identificar si hay atípicos. Empecemos por el resumen:
+
+```{r}
+group_by(cirrosis, Plaquetas) |> 
+  summarise(
+    count = n(),
+    mean = mean(Plaquetas, na.rm = TRUE),
+    sd = sd(Plaquetas, na.rm = TRUE),
+    min = min(Plaquetas, na.rm = TRUE),
+    max = max(Plaquetas, na.rm = TRUE)
+  )
+```
+
+Visualización
+
+```{r}
+cirrosis |>  
+  filter(!is.na(Dias_Seguimiento)& !is.na(Edema))  |> 
+  ggplot(aes(y = Dias_Seguimiento, x = Edema)) +
+  geom_boxplot() +
+  labs(y = "seguimiento px", x = "tipo Edema")
+```
+
+## 3.4 Pruebas preliminares para evaluar los supuestos del ANOVA
+
+```{r}
+cirrosis <- cirrosis |>
+    mutate(Edema = as.factor(Edema))
+```
+
+Supuesto 1v: los datos deben haber sido muestreados de una distribución normal.
+
+Para esto, usamos la prueba de Shapiro-wilk.
+
+```{r}
+cirrosis |> 
+  filter(Edema == "Severo") |> 
+  summarise(shapiro = list(shapiro.test(Albumina))) |>
+  pull(shapiro)
+```
+
+```{r}
+cirrosis |> 
+  filter(Edema == "Leve") |> 
+  summarise(shapiro = list(shapiro.test(Albumina))) |> 
+  pull(shapiro)
+```
+
+```{r}
+cirrosis |> 
+  filter(Edema == "Ausente") |> 
+  summarise(shapiro = list(shapiro.test(Albumina))) |> 
+  pull(shapiro)
+```
+
+```{r}
+leveneTest(Albumina ~ Edema, data = cirrosis)
+```
+
+## 3.5 Realizamos la prueba de ANOVA de una vía para nuestros datos.
+
+```{r}
+res_anova = aov(Albumina ~ Edema, data = cirrosis)
+```
+
+```{r}
+summary(res_anova)
+```
+
+**Interpretando los resultados**
+
+Dado que el valor p es mayor que el nivel de significancia 0.05, podemos concluir que no existen diferencias significativas entre los grupos.
+
+Aunque para este ejecicio no hemos encontrado una diferencia estadísticamente significativa, cuando sí lo hay, es importante realizar una prueba de comparación por pares para saber dónde se encuentra la diferencia. Para esto, se puede utilizar la prueba Tukey HSD (Tukey Honest Significant Differences)
+
+```{r}
+TukeyHSD(res_anova)
+```

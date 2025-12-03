@@ -1,0 +1,148 @@
+---
+title: "Bondad de ajuste"
+format: html
+editor: Visual 
+INTEGRANTES:
+MARÍA LUCIA JACOBO ATUNCAR 
+GAMBOA CANALES MARIPAZ 
+ARIANA ABIGIAL VIDAL ROMUCHO 
+FERNANDA GIANELLA CASTILLA SALVADOR 
+SEBASTIAN PALOMINO ROJAS 
+KRISTY STEFANY ALVAREZ PEVES
+ 
+    wrap: 72
+---
+
+### Glosario introductorio
+
+**1. Modelo estadístico**\
+Es una representación matemática que describe relaciones entre variables. Se utiliza para hacer inferencias, predicciones o entender el comportamiento de los datos.
+
+**2. Variable continua**\
+Tipo de variable numérica que puede tomar un número infinito de valores dentro de un rango (por ejemplo, niveles de glucosa o circunferencia de cintura).
+
+**3. Distribución de probabilidad**\
+Describe cómo se distribuyen los valores posibles de una variable aleatoria. Algunas distribuciones comunes incluyen la normal, binomial y chi-cuadrado.
+
+**4. Hipótesis nula (H₀)**\
+Proposición que se plantea al inicio de una prueba estadística y que indica la ausencia de efecto o diferencia. Se rechaza o no según el valor p obtenido.
+
+**5. Valor p**\
+Probabilidad de obtener un resultado igual o más extremo que el observado, si la hipótesis nula fuera cierta. Un valor p menor a 0.05 suele considerarse estadísticamente significativo.
+
+# ¿Que son las pruebas de bondad de ajuste?
+
+Las pruebas de bondad de ajust**e** evalúan qué tan bien los datos observados se ajustan a los valores esperados según un modelo estadístico.
+
+La bondad de ajuste puede evaluarse en al menos dos escenarios principales:
+
+### 1. En modelos de regresión
+
+Por ejemplo, un estudiante podría aplicar un modelo de regresión lineal para evaluar la relación entre el peso de los pacientes de un hospital y su nivel de glucosa. Para determinar si el modelo es adecuado para explicar esta relación, se puede calcular el estadístico de bondad de ajuste R².
+
+El estadístico R² mide el porcentaje de variabilidad de la variable dependiente (en este caso, el nivel de glucosa) que es explicado por el modelo de regresión. Cuanto mayor sea el valor de R², mejor será el ajuste del modelo a los datos observados.
+
+### 2. En distribuciones de probabilidad
+
+En algunos casos, el modelo estadístico que se desea aplicar requiere que los datos sigan una distribución de probabilidad específica, como la distribución normal.
+
+Por otro lado, muchas pruebas de hipótesis utilizan **estadísticos de prueba** (no necesariamente modelos completos). Por ejemplo:
+
+-   Las **pruebas t** (t de Student) usan el estadístico *t*.
+
+-   El **ANOVA** usa el estadístico *F*.
+
+-   Las **pruebas de chi-cuadrado** usan el estadístico χ².
+
+Estas pruebas se basan en las distribuciones teóricas de estos estadísticos para calcular los valores p, los cuales permiten decidir si aceptar o rechazar la hipótesis nula.
+
+Este esta sesión práctica se enfocará en el segundo escenario.
+
+# Cargamos los paquetes necesarios
+
+```{r}
+library(rio)
+library(here)
+```
+
+# Cargar los datos
+
+```{r}
+data_cirrosis_tiempo <- import(here("cirrosis.csv"))
+```
+
+# 1. Para datos continuos
+
+La prueba t de Student y el ANOVA son dos pruebas estadísticas ampliamente utilizadas que permiten evaluar si el valor promedio de una variable numérica difiere entre dos o más grupos o categorías.
+
+Ambas pruebas asumen que la variable continua sigue una distribución normal.\
+Pero, ¿cómo podemos comprobar si esta condición se cumple?\
+Mediante una prueba de bondad de ajuste.
+
+Una de las pruebas más comunes para evaluar la normalidad de una variable numérica es la prueba de Shapiro-Wilk. Esta prueba permite determinar si los datos provienen de una distribución normal, lo cual es un requisito clave antes de aplicar pruebas como la t de Student o el ANOVA.
+
+## Para la variable circun_cintura
+
+Esta variable corresponde a medidas de circunferecia de cintura en centimetros. En R, usamos la función nativa `shapiro.test()` para realizar la prueba de Shapiro-Wilk
+
+```{r}
+dim(cirrosis)
+```
+
+```{r}
+names(cirrosis)
+```
+
+```{r}
+shapiro.test(data_cirrosis_tiempo$Tiempo_Protrombina)
+```
+
+## Para la variable Edad
+
+Esta variable corresponde a medidas de edad x dias
+
+```{r}
+shapiro.test(data_cirrosis_tiempo$Edad)
+```
+
+## Respecto a la interpretación de los dos resultados
+
+Las hipótesis de la prueba de Shapiro-Wilk
+
+-   La hipótesis nula (H₀) establece que la muestra proviene de una distribución normal.
+
+-   La hipótesis alternativa (H₁) plantea que la muestra no proviene de una distribución normal.
+
+Si tomamos en cuenta que el valor de p aceptado para esta evaluación es \< 0.05, entonces el resultado de la evaluación de normalidad para la variable circunferecia de cintura indica que esta variable NO tiene una distribución normal.
+
+En contraste, el resultado para la variable glucosa (p = 0.7338) indica que la muestra sí proviene de una distribución normal.
+
+# 2. Para datos categóricos
+
+El dataset para esta sesión contiene información sobre el estado de síndrome metabólico. En esta muestra, el número de participantes con síndrome metabólico es 65 de un total de 200.
+
+```{r}
+table(data_cirrosis_tiempo$Ascitis)
+```
+
+Un estudio previo realizado en Perú reportó una prevalencia de síndrome metabólico del 26,9% (DOI: <https://doi.org/10.1111/j.1365-2362.2009.02191.x>).
+
+En este caso, la prevalencia del estudio previo representa el valor esperado, mientras que la prevalencia observada en nuestro conjunto de datos representa el valor observado.
+
+Uno de los objetivos de nuestro análisis es evaluar si la proporción observada de síndrome metabólico difiere significativamente de la proporción esperada. Para ello, utilizamos la prueba de bondad de ajuste de Chi-cuadrado.
+
+Las hipótesis de esta prueba son las siguientes:
+
+-   **Hipótesis nula (H₀):** No existe una diferencia significativa entre la proporción observada y la esperada.
+
+-   **Hipótesis alternativa (H₁):** Existe una diferencia significativa entre la proporción observada y la esperada.
+
+En R, esta prueba se realiza mediante la función `chisq.test()`, a la cual se deben proporcionar los valores observados y las proporciones esperadas para llevar a cabo la comparación.
+
+```{r}
+chisq.test(x = c(65, 135), p = c(0.269, 0.731))
+```
+
+Interpretación
+
+Dado que el valor de p es mayor a 0.05, podemos concluir que las proporciones observadas no son significativamente diferentes de las proporciones esperadas.

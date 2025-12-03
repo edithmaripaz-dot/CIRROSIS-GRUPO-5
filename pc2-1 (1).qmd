@@ -1,0 +1,128 @@
+---
+title: "Prevalencia y gravedad del síndrome hepatopulmonar y su influencia en la supervivencia de pacientes cirróticos evaluados para trasplante hepático"
+Participantes:
+"MARÍA LUCIA JACOBO ATUNCAR 
+GAMBOA CANALES MARIPAZ 
+ARIANA ABIGIAL VIDAL ROMUCHO 
+FERNANDA GIANELLA CASTILLA SALVADOR 
+SEBASTIAN PALOMINO ROJAS 
+KRISTY STEFANY ALVAREZ PEVES"
+format: html
+editor: visual
+---
+
+# Instalar y Cargar paquetes para el cálculo de análisis de poder estadístico
+
+```{r}
+install.packages("epiR")
+install.packages(c("ggplot2","dplyr","readr","tidyr"))
+```
+
+```{r}
+library(epiR)
+library(ggplot2); library(dplyr); library(readr); library(tidyr)
+```
+
+# 1. Cálculo de muestra para un estudio de prevalencia (survey)
+
+Para el cálculo de muestra de un estudio de prevalencia es necesaria la información sobre la prevalencia esperada (`Py`) y, opcionalmente, el tamaño de la población.
+
+Caso 1: La prevalencia del síndrome hepatopulmonar (SPH) y su influencia en la supervivencia antes y después del trasplante hepático (TH) sigue siendo controvertida. Además, la cronología de la reversibilidad post-LT no está clara. En este estudio se analizaron prospectivamente 316 pacientes con cirrosis que fueron evaluados para TH en 2002–2007; 177 se sometieron a TH en un único hospital de referencia.
+
+El SPS se definió por una presión parcial de oxígeno arterial (PaO2) \<70 mmHg y/o un gradiente alveolar-arterial de oxígeno (A-a PO2) ≥20 mmHg en decúbito supino y ecocardiografía con contraste positivo. La prevalencia de SPH fue del 25,6% (81/316 pacientes) y la mayoría de los pacientes (92,6%) presentaron SPH leve o moderado. Las puntuaciones altas de Child-Pugh y la presencia de ascitis se asociaron de forma independiente con el SPS. Los pacientes con y sin HPS no difirieron significativamente en la supervivencia en lista de espera de TH (media de 34,6 meses frente a 41,6 meses, respectivamente; rango logarítmico, p = 0,13) o en la supervivencia posterior a TH (media de 45 meses frente a 47,6 meses, respectivamente; rango logarítmico, p = 0,62).
+
+La HPS se revirtió en todos los casos dentro de 1 año después de la LT. Una cuarta parte de los pacientes con cirrosis que fueron evaluados para la LT tenían HPS (en su mayoría leve a moderada); la presencia de SPH no afectó la supervivencia en lista de espera de LT. El HPS siempre se revirtió después de la TH y el pronóstico de los pacientes no empeoró.<https://doi.org/10.1111/ajt.12713>.
+
+¿Cuál sería el tamaño de muestra necesario?
+
+Aquí, usamos la función `episssimpleestb()`: Sample size to estimate a binary outcome using simple random sampling
+
+```{r}
+epi.sssimpleestb(N = NA, Py = 0.256, 
+                 epsilon = 0.20, error = "relative", 
+                 se = 1, sp = 1, 
+                 nfractional = FALSE, conf.level = 0.95)
+```
+
+Es necesario 280 participantes.
+
+# 2. Cálculo de muestra para un estudio de casos y controles
+
+Caso 1: No se observaron asociaciones entre el SPH y la edad, el sexo, la causa de cirrosis hepática, el antecedente de tabaquismo o DM. La ortodoxia se presentó en 17/56 (30,4%) pacientes con SPH y en 47/143 (32,9%) pacientes sin SPH (p = 0,7). No se encontraron asociaciones entre el SPH y las variables indirectas de hipertensión portal, como várices esofágicas o encefalopatía, ni con los niveles séricos de leucocitos o plaquetas ([Tabla 1](https://www.amjtransplant.org/article/S1600-6135(22)25488-4/fulltext#t1)). En el análisis univariado, la HPS se asoció con una menor presión arterial media (PAM) (p = 0,01), menores niveles de albúmina sérica (p = 0,08), menores valores de FVC (p = 0,03), ascitis (p = 0,02) y mayor puntuación de Child-Pugh (p = 0,03). Se realizó un análisis multivariado con un modelo inicial que incluyó las puntuaciones de Child-Pugh y los valores de MAP y FVC. La puntuación de Child-Pugh persistió como la única variable independiente que se asoció con el SPS (odds ratio \[OR\] = 1,206, IC 95%: 1,039-1,399, p = 0,01) ([Tabla 2A](https://www.amjtransplant.org/article/S1600-6135(22)25488-4/fulltext#t2)). En un segundo modelo, la puntuación de Child-Pugh se sustituyó por los valores de albúmina y la presencia de ascitis, y la ascitis persistió como la única variable independiente que se asoció con el SPH (OR = 2,953, IC 95%: 1,106-7,885, p = 0,03).[https://doi.org/10.1111/ajt.12713](#0){style="font-size: 11pt;"}.
+
+¿Cuál sería el tamaño de muestra necesario de casos y controles?
+
+Aquí, usamos la función `epi.sscc()`: Sample size, power or minimum detectable odds ratio for an unmatched or matched case-control study
+
+```{r}
+epi.sscc(OR = 0.304, p1 = NA, 
+         p0 = 0.329, n = NA, 
+         power = 0.80, r = 1, 
+         phi.coef = 0, design = 1, 
+         sided.test = 2, conf.level = 0.95, 
+         method = "unmatched", nfractional = FALSE, 
+         fleiss = FALSE)
+```
+
+Es necesario 69 casos y 69controles.
+
+# 3. Cálculo de muestra para un estudio de cohorte
+
+Caso 1:No se observaron asociaciones entre el SPH y la edad, el sexo, la causa de cirrosis hepática, el antecedente de tabaquismo o DM. La ortodoxia se presentó en 17/56 (30,4%) pacientes con SPH y en 47/143 (32,9%) pacientes sin SPH (p = 0,7). No se encontraron asociaciones entre el SPH y las variables indirectas de hipertensión portal, como várices esofágicas o encefalopatía, ni con los niveles séricos de leucocitos o plaquetas ([Tabla 1](https://www.amjtransplant.org/article/S1600-6135(22)25488-4/fulltext#t1)).
+
+En el análisis univariado, la HPS se asoció con una menor presión arterial media (PAM) (p = 0,01), menores niveles de albúmina sérica (p = 0,08), menores valores de FVC (p = 0,03), ascitis (p = 0,02) y mayor puntuación de Child-Pugh (p = 0,03). Se realizó un análisis multivariado con un modelo inicial que incluyó las puntuaciones de Child-Pugh y los valores de MAP y FVC. La puntuación de Child-Pugh persistió como la única variable independiente que se asoció con el SPS (odds ratio \[OR\] = 1,206, IC 95%: 1,039-1,399, p = 0,01) ([Tabla 2A](https://www.amjtransplant.org/article/S1600-6135(22)25488-4/fulltext#t2)). En un segundo modelo, la puntuación de Child-Pugh se sustituyó por los valores de albúmina y la presencia de ascitis, y la ascitis persistió como la única variable independiente que se asoció con el SPH (OR = 2,953, IC 95%: 1,106-7,885, p = 0,03).[https://doi.org/10.1111/ajt.12713](#0){style="font-size: 11pt;"}.
+
+**Pregunta:** ¿Cuál sería el tamaño de muestra necesario para los grupos de expuestos (con anemia) y no expuestos (sin anemia)?
+
+Para responder, utilizamos la función `epi.sscohortt()`: *Sample size, power or minimum detectable incidence rate ratio for a cohort study using person or animal time data*.
+
+```{r}
+epi.sscohortt(irexp1 = 17/56, irexp0 = 47/143, FT = 3, n = 316, 
+              power = NA, r = 1, design = 1, sided.test = 2, 
+              nfractional = FALSE, conf.level = 0.95)
+```
+
+Es necesario 177 de expuestos y 177 no expuestos.
+
+# 4. Cálculo de poder estadístico
+
+**Caso 1.** La tasa de mortalidad global fue del 17,7% (56/316). Las tasas de mortalidad fueron del 23,5% (19/81) en los pacientes con HPS y del 15,7% (37/235) en los pacientes sin HPS (p = 0,11). No se observaron diferencias en la probabilidad de LT entre pacientes con y sin SPH (60,5% vs. 54,5%, respectivamente; p = 0,34). La mediana del periodo de seguimiento fue de 6,46 meses (RIC: 2,7-16,4). Se detectó una tendencia a una menor supervivencia en los pacientes con HPS frente a los pacientes sin HPS, pero la diferencia no fue estadísticamente significativa (RR = 1,53, IC 95%: 0,87-2,69, p = 0,13). La mediana de supervivencia global fue de 40 meses (IC 95%: 36,2-43,8), y se observó una tendencia hacia una menor supervivencia actuarial (método de Kaplan-Meier) en los pacientes con HPS en comparación con los pacientes sin HPS: 34,6 meses (IC 95%: 27,7-40,4) frente a 41,6 meses (IC 95%: 37,1-46,1), respectivamente (log-rank, p = 0,13) ([Figura 2](https://www.amjtransplant.org/article/S1600-6135(22)25488-4/fulltext#f2)).
+
+En el análisis univariado se utilizaron la edad, los niveles de hemoglobina, la clase y puntuación de Child-Pugh, la puntuación MELD, los niveles de bilirrubina total, el cociente internacional normalizado (INR), los niveles de albúmina, el tipo de enfermedad respiratoria, FEV1, FVC, TLC, PaO2Pco2 y A-a PO2 se asociaron significativamente con la mortalidad en lista de espera de LT. La ortodeoxia (p = 0,055) y la DM (p = 0,06) estuvieron cerca de alcanzar significación estadística ([Tabla 3](https://www.amjtransplant.org/article/S1600-6135(22)25488-4/fulltext#t3)). No se identificaron asociaciones entre la mortalidad pre-TH y las demás variables. En un modelo multivariado que incluyó la puntuación de Child-Pugh, la puntuación MELD, el tipo de enfermedad respiratoria y HPS, la puntuación de Child-Pugh y las enfermedades respiratorias restrictivas y mixtas emergieron como variables independientes que se asociaron a la mortalidad en lista de espera de LT.COI:[https://doi.org/10.1111/ajt.12713](#0){style="font-size: 11pt;"}.
+
+Pregunta: ¿Cuál es el poder estadístico con el tamaño de muestra propuesto para cada grupo?
+
+Para responder, utilizamos la función `epi.sscohortt()`: *Sample size, power or minimum detectable incidence rate ratio for a cohort study using person or animal time data*.
+
+```{r}
+epi.sscohortt(irexp1 = 56/316, irexp0 = 19/81, FT = 4, n = 316, 
+              power = NA, r = 1, design = 1, sided.test = 2, 
+              nfractional = FALSE, conf.level = 0.95)
+```
+
+Tendremos un poder estadístico de 73% para recharazar correctamente la hipótesis nula.
+
+-   ***Los graficos descriptivos se haran con los paquetes***("ggplot2","dplyr","readr","tidyr")
+
+```{r}
+View(cirrosis)
+```
+
+```{r}
+glimpse(cirrosis)
+```
+
+```{r}
+summary(cirrosis)
+```
+
+```{r}
+skimr::skim(cirrosis) 
+```
+
+```{r}
+ggplot(cirrosis, aes(x = ID)) +
+  geom_bar(fill = "cornflowerblue") +
+  labs(x = "Dias_Seguimiento", y = "ID", title = "Ascitis") +
+  scale_y_continuous(expand = c(0,0))
+```

@@ -1,0 +1,318 @@
+---
+title: "Análisis univariado y multivariado con gtsummary"
+author: "Kevin J. Paez"
+Grupo: 5
+Miembros:
+● MARÍA LUCIA JACOBO ATUNCAR  
+● GAMBOA CANALES MARIPAZ  
+● ARIANA ABIGIAL VIDAL ROMUCHO  
+● FERNANDA GIANELLA CASTILLA SALVADOR  
+● SEBASTIAN PALOMINO ROJAS  
+● KRISTY STEFANY ALVAREZ PEVES
+Basededatos: cirrosis.cvs
+Editor: visual
+format: html
+---
+
+## Cargar los paquetes
+
+```{r}
+library(tidyverse)
+library(here)
+library(rio)
+library(gtsummary)
+library(car)
+library(survival)
+```
+
+## 1 Modelos univariados (no ajustados) vs. multivariados (ajustados)
+
+Hasta ahora, hemos explorado modelos de regresión que evalúan un predictor a la vez. A estos se les denomina modelos univariados o no ajustados, ya que solo consideran una variable predictora. Sin embargo, datasets utilizados en estas sesiones, al igual que muchos datos que probablemente recolectes, provienen de estudios observacionales. Es decir, no existe un control estricto sobre qué individuos se incluyen en el análisis y cuáles no. Esto implica que múltiples factores pueden influir en el desenlace de interés de manera simultánea.
+
+Por esta razón, no es adecuado extraer conclusiones definitivas a partir de modelos no ajustados, ya que estos ignoran el efecto de posibles variables de confusión. En su lugar, es necesario realizar un análisis multivariado o ajustado, que permita considerar de manera simultánea varios predictores potenciales.
+
+## 1.1 Interpretación general del modelo ajustado
+
+Cuando se incluyen varias covariables en un modelo de regresión, se obtienen medidas de efecto ajustadas, como el Odds Ratio ajustado (OR ajustado) en la regresión logística, o el riesgo relativo ajustado (RR ajustado) en la regresión de Cox. Estas medidas estiman la asociación entre una variable específica y el desenlace de interés, mientras se controla el efecto de las demás covariables incluidas en el modelo.
+
+En esta sesión aplicaremos tanto modelos univariados (no ajustados) como multivariados (ajustados), utilizando el dataset previamente analizados en sesión de regresión logística.
+
+## 1.2 Selección de variables para el modelo multivariado (ajustado)
+
+La selección de variables consiste en decidir cuáles variables incluir en un modelo a partir de una lista completa de predictores disponibles, eliminando aquellas que son irrelevantes o redundantes. El objetivo es construir un modelo que explique adecuadamente el desenlace y permita realizar predicciones precisas sin sobreajustar los datos.
+
+Existen al menos dos enfoques principales para la selección de variables:
+
+### **1.2.1 Selección automática**
+
+Este método emplea algoritmos automáticos —disponibles en R— para determinar qué variables incluir en el modelo. Las técnicas automáticas de selección se basan en criterios estadísticos como los valores p o los coeficientes de regresión. Los algoritmos difieren principalmente en la estrategia que utilizan para evaluar la inclusión o exclusión de variables en el modelo final.
+
+Dependiendo de la dirección del algoritmo (forward, backward o stepwise), el resultado será un subconjunto seleccionado de variables. Para comparar entre distintos modelos generados por estos algoritmos, puede utilizarse el Criterio de Información de Akaike (Akaike Information Criterion, AIC), que estima el error de predicción y, por tanto, la calidad relativa de los modelos estadísticos para un conjunto de datos dado. En términos simples, cuanto menor sea el valor del AIC, mejor es el modelo en términos de equilibrio entre ajuste y complejidad.
+
+Hay al menos tres algoritmos de selección automática de variables:
+
+1.  Eliminación hacia atrás (*Backward elimination*),
+
+2.  Selección hacia adelante (*Forward selection*) y
+
+3.  Selección paso a paso (*Stepwise selection*).
+
+Cada uno de estos métodos tiene ventajas y limitaciones. Entre ellos, la selección paso a paso es una técnica ampliamente utilizada en investigaciones en ciencias de la salud, ya que combina procedimientos de selección hacia adelante y hacia atrás. Esto permite añadir o eliminar variables de manera iterativa en función de criterios estadísticos, optimizando el modelo en ambos sentidos.
+
+Sin embargo, la selección automática de variables no debería realizarse de manera aislada; es recomendable complementarla con una evaluación de la multicolinealidad. La multicolinealidad ocurre cuando dos o más variables independientes están altamente correlacionadas, lo que puede distorsionar las estimaciones del modelo. Por ejemplo, no es apropiado incluir simultáneamente el recuento total de leucocitos y el recuento de neutrófilos, dado que ambas variables están estrechamente relacionadas; en estos casos, es preferible seleccionar solo una de ellas.
+
+En regresión, una herramienta común para detectar multicolinealidad es el Factor de Inflación de la Varianza (VIF, por sus siglas en inglés). De manera general, se interpreta así:
+
+-   VIF de 1 indica que no hay multicolinealidad.
+-   VIF entre 1 y 5 sugiere una multicolinealidad moderada.
+-   VIF superior a 5 o 10 indica una multicolinealidad alta que puede requerir atención.
+
+### **1.2.2 Selección intencionada de variables**
+
+La selección intencionada de variables sigue una serie de pasos que combinan criterios estadísticos y consideraciones clínicas. Estos pasos incluyen:
+
+-   Evaluación univariada de variables: Se realiza un análisis univariado para cada variable independiente con respecto a la variable de desenlace. Las variables que presentan una asociación estadísticamente significativa (habitualmente con un valor de p menor a 0.20) o que son consideradas clínicamente relevantes se seleccionan para su inclusión inicial en el modelo multivariado, independientemente de su significancia estadística.
+
+-   Comparación de modelos multivariados: Las variables seleccionadas se incluyen en un modelo multivariado preliminar. A partir de este modelo, las variables que no alcanzan un nivel de significancia estadística estricto (por ejemplo, p \> 0.05) pueden ser consideradas para eliminación. Posteriormente, se comparan el modelo original (con todas las variables) y el modelo reducido (con las variables eliminadas) para evaluar si la simplificación del modelo afecta negativamente su capacidad explicativa o predictiva. Esta comparación puede realizarse mediante pruebas como la de razón de verosimilitud (Likelihood Ratio Test) o criterios de información (AIC/BIC).
+
+-   Evaluación de interacciones: Es importante explorar posibles términos de interacción entre variables que, en combinación, podrían modificar el efecto sobre el desenlace.
+
+## 2. Ejemplos de análisis univariado y multivariado en una regresión logística
+
+### 2.1 El dataset para este ejercicio
+
+Para ilustrar el proceso de análisis multivariado en un modelo de regresión logística, se empleará el dataset `hipert_covid`. Este conjunto de datos incluye información de 287 pacientes diagnosticados con COVID-19 y diabetes mellitus. Las variables registradas comprenden el desenlace hospitalario (vivo o fallecido), edad (en años), sexo (femenino o masculino), presencia de hipertensión arterial, valores de presión sanguínea, frecuencia cardiaca y frecuencia respiratoria, entre otras variables de relevancia clínica.
+
+Cargando los datos
+
+```{r}
+cirrosis_4 <- import(here("cirrosis_4"))
+```
+
+Un vistazo a los datos
+
+```{r}
+head(cirrosis_4)
+```
+
+### 2.2 El análisis univariado
+
+En esta sección se estimarán los Odds Ratios (OR) de cada variable de manera independiente, es decir, sin ajuste por otras covariables.
+
+Antes de realizar este análisis, es necesario definir las categorías de referencia para las variables categóricas mediante la función `mutate()` en combinación con `relevel()`. Este paso asegura que la interpretación de los OR se haga en relación con la categoría de referencia seleccionada. El resultado se guarda en un nuevo objeto llamado
+
+```{r}
+cirrosis_5 <- cirrosis_4 |> 
+  mutate(hipert = relevel(as.factor(dias_seguimiento), ref = "4500"), edades = relevel(as.factor(medicamento), ref = "D_penicilamina"),
+         desenlace = relevel(as.factor(etapa), ref = "Etapa 4")
+         ) |> 
+  na.omit()
+```
+
+Para obtener la tabla con los resultados del análisis univariado, se utiliza la función `tbl_uvregression()`, que permite generar tablas con las estimaciones de regresión logística para cada variable incluida. Entre sus argumentos se especifican el método de regresión, las variables a analizar, la familia de distribución (binomial para modelos logísticos), y opciones de presentación de los resultados como los intervalos de confianza, valores p y formato de los estimadores.
+
+```{r}
+tabla_reg_log_univ <- cirrosis_5 |>
+  tbl_uvregression(
+    include = c(dias_seguimiento, estado, medicamento, edad, sexo,ascitis, edema),
+    y = desenlace,
+    method = glm,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    add_estimate_to_reference_rows = FALSE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+      dias_seguimiento ~ "dias post diagnostico",
+      estado ~ "estado del paciente",
+      medicamento ~ "medicamentos",
+      edad ~ "dias x años",
+      sexo ~ "Hombre/Mujer",
+      ascitis ~ "Sí/No",
+      edema ~ "estado de edema")
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR no ajustado**", p.value = "**Valor P**")
+```
+
+En esta tabla, los resultados se expresan como odds ratios no ajustados (OR) con sus respectivos intervalos de confianza al 95% y valores p.
+
+```{r}
+tabla_reg_log_univ
+```
+
+**¿Cómo interpretar?**
+
+Para la interpretación de las variables categóricas, se recomienda revisar los conceptos abordados en la Sesión 10, donde se explicó en detalle cómo interpretar los OR en este tipo de variables.
+
+En cuanto a las variables numéricas, se observa que todas presentan un OR mayor a 1, lo que sugiere una posible asociación positiva con el desenlace (mortalidad hospitalaria). Sin embargo, únicamente las variables frecuencia cardiaca y frecuencia respiratoria mostraron una asociación estadísticamente significativa (valor p \< 0.05).
+
+Específicamente, por cada aumento de una unidad en la frecuencia cardiaca (lpm), las probabilidades (odds) de fallecer se incrementan en un 2% (OR = 1.02).
+
+De manera similar, por cada aumento de una unidad en la frecuencia respiratoria (rpm), las odds de fallecer aumentan en un 4% (OR = 1.04).
+
+### 2.3 El análisis multivariado
+
+Para el análisis de regresión logística multivariada, se aplicó una estrategia de selección automática de variables utilizando tres enfoques: eliminación hacia atrás (*backward elimination*), selección hacia adelante (*forward selection*) y selección paso a paso (*stepwise selection)*.
+
+**Paso 1. Ajuste del modelo inicial**
+
+Ajustamos un modelo de regresión logística binaria que incluya todas las variables candidatas
+
+```{r}
+var_modelo = glm(
+  desenlace ~ dias_seguimiento  + edad  + bilirrubina + colesterol  + albumina + fosfatasa_alcalina  + trigliceridos,
+  data = cirrosis_5,
+  family = binomial(link = "logit"))
+```
+
+**Paso 2a. Realizamos la selección de variables** usando la técnica Eliminación hacia atrás (Backward elimination).
+
+```{r}
+multi_backward <- var_modelo |>
+  step(direction = "backward", trace = FALSE)
+```
+
+**Paso 2b. Realizamos la selección de variables** usando la técnica Selección hacia adelante (Forward selection).
+
+```{r}
+multi_forward <- var_modelo |>
+  step(direction = "forward", trace = FALSE)
+```
+
+**Paso 3c. Realizamos la selección de variables** usando la técnica Selección paso a paso (Stepwise selection).
+
+```{r}
+multi_stepwise <- var_modelo |>
+  step(direction = "both", trace = FALSE)
+```
+
+Los resultados de la selección de las variables para el modelo se han guardado en los objetos: multi_backward, multi_forward, y multi_stepwise. El siguiente paso es comparar los valores de AIC y la multicolinealidad entre las variables seleccionadas por cada uno de los modelos.
+
+**Paso 3. Estimados el AIC para los modelos.**
+
+Podemos visualizar el AIC y cuáles variables han sido seleccionadas en cada modelo, usando la función summary.
+
+```{r}
+summary(multi_backward)
+```
+
+```{r}
+summary(multi_forward)
+```
+
+```{r}
+summary(multi_stepwise)
+```
+
+### **2.4 Conclusión**
+
+Los modelos obtenidos mediante eliminación hacia atrás (backward elimination) y selección paso a paso (stepwise selection) presentaron el menor valor de AIC (313.455), indicando un mejor ajuste en comparación con el modelo generado mediante selección hacia adelante (forward selection). Además, ambos modelos seleccionaron el mismo conjunto de variables. Por el contrario, la técnica de selección hacia adelante mantuvo todas las variables originales, lo que resultó en un modelo más complejo sin mejorar el AIC.
+
+### 2.5 Evaluación de colinealidad
+
+Finalmente, evaluamos la colinealidad usando la función `check_collinearity()` del paquete `performance`.
+
+```{r}
+performance::check_collinearity(multi_backward, ci = NULL)
+```
+
+```{r}
+performance::check_collinearity(multi_forward, ci = NULL)
+```
+
+```{r}
+performance::check_collinearity(multi_stepwise, ci = NULL)
+```
+
+### **2.6 Conclusión**
+
+Los modelos generados mediante eliminación hacia atrás (backward elimination) y selección paso a paso (stepwise selection) mostraron valores de VIF bajos y cercanos a 1, lo que indica una baja colinealidad entre las variables incluidas.
+
+En cambio, el modelo obtenido con la técnica de selección hacia adelante (forward selection) presentó valores de VIF relativamente elevados para las variables p_a_sistólica y p_a_diastólica (ambas con VIF = 1.78). Este hallazgo es esperable, dado que ambas variables miden componentes relacionados de la presión arterial, lo que sugiere redundancia y posible colinealidad. Esta relación podría explicar por qué estas variables fueron descartadas durante los otros procedimientos de selección automática, con el objetivo de optimizar el modelo y reducir la multicolinealidad. De hecho, ninguna de estas dos variables fue retenida en los modelos seleccionados mediante backward o stepwise.
+
+### 2.7 Modelo final
+
+Con base en los resultados de ajuste (AIC) y la evaluación de colinealidad (VIF), se concluye que el modelo óptimo es el obtenido mediante las técnicas de eliminación hacia atrás (backward elimination) o selección paso a paso (stepwise selection), dado que ambos produjeron exactamente el mismo conjunto de variables.
+
+El modelo final incluye un total de cuatro variables independientes, las cuales serán reportadas en el análisis multivariado definitivo.
+
+## 3 Reporte del análisis univariado y multivariado
+
+Como en las sesiones anteriores, reportaremos los resultados del modelo final de regresión logística.
+
+Tabla para los resultados de la regresión univariado (no ajustado)
+
+```{r}
+tabla_univ <- cirrosis_5 |>
+  tbl_uvregression(
+    include = c(dias_seguimiento, estado, medicamento, edad, sexo,ascitis, edema),
+    y = desenlace,
+    method = glm,
+    method.args = list(family = binomial),
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    add_estimate_to_reference_rows = FALSE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+    dias_seguimiento ~ "dias post diagnostico",
+      estado ~ "estado del paciente",
+      medicamento ~ "medicamentos",
+      edad ~ "dias x años",
+      sexo ~ "Hombre/Mujer",
+      ascitis ~ "Sí/No",
+      edema ~ "estado de edema")
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR**", p.value = "**Valor P**")
+```
+
+Tabla para los resultados de la regresión multivariable (ajustado)
+
+```{r}
+tabla_multi <- glm(
+  desenlace ~ dias_seguimiento  + trigliceridos  + bilirrubina + colesterol ,
+  family = binomial(link = "logit"),
+  data = cirrosis_5
+) |>
+  tbl_regression(
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+      dias_seguimiento  ~ "dias post diagnostico",
+      trigliceridos  ~ "mg/dL",
+      bilirrubina  ~ "%",
+      colesterol  ~ "mg/dL"
+    )
+  ) |>
+  bold_labels() |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**OR**", p.value = "**Valor P**")
+```
+
+La tabla final la construimos usando la función `tbl_merge()`. De modo que la tabla del análisis univariado o no ajustado y multivariado o ajustado, se muestren lado a lado.
+
+```{r}
+tabla_final <- 
+  tbl_merge(
+    list(tabla_univ, tabla_multi),
+    tab_spanner = c("**Univariado**", "**Multivariado**"))
+```
+
+```{r}
+tabla_final
+```
+
+### **3.1 ¿Cómo interpretar?**
+
+En el modelo de regresión logística ajustado, la edad y la frecuencia cardíaca se asociaron de manera significativa con la mortalidad hospitalaria. Por cada año adicional de edad, las odds de fallecer aumentan en un 6% (OR = 1.06; IC95%: 1.04–1.09; p \< 0.001). De igual forma, un incremento de un latido por minuto en la frecuencia cardíaca eleva las odds de muerte en un 3% (OR = 1.03; IC95%: 1.01–1.05; p \< 0.001).
+
+Por otro lado, la hipertensión y la frecuencia respiratoria no mostraron asociación estadísticamente significativa tras el ajuste por las demás variables del modelo.

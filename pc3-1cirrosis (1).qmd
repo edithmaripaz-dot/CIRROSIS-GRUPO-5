@@ -1,0 +1,310 @@
+---
+title: "Análisis de supervivencia"
+format: html
+Miembros:
+● MARÍA LUCIA JACOBO ATUNCAR  
+● GAMBOA CANALES MARIPAZ  
+● ARIANA ABIGIAL VIDAL ROMUCHO  
+● FERNANDA GIANELLA CASTILLA SALVADOR  
+● SEBASTIAN PALOMINO ROJAS  
+● KRISTY STEFANY ALVAREZ PEVES 
+Basededatos: cirrosis.csv
+Editor: visual
+---
+
+### Instalar (si es necesario)
+
+```{r}
+install.packages("broom")
+install.packages("survival")
+install.packages("survminer")
+install.packages("ggsurvfit")
+```
+
+### Cargar paquetes
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(survival)
+library(survminer)
+library(gtsummary)
+library(broom)
+library(here)
+library(rio)
+library(ggsurvfit)
+```
+
+# 1 Analizando datos de tiempo a evento
+
+El análisis de supervivencia, tambien conocido como análisis de tiempo a evento, es empleado para estudios donde el o los investigadores realizan un seguimiento (a los pacientes) hasta que ocurra un evento. Ejemplo de tales estudios caen en la categoría de estudios de cohorte prospectivo o retrospectivo.
+
+El evento, en estudios de epidemiología, puede corresponder a muerte despues de diagnóstico, recurrencia de enfermedad, éxito de tratamiento, entre otros.
+
+El análisis de supervivencia incluye datos de tiempo (dado que se hace seguimiento). Los datos de tiempo puede venir en cualquier forma: horas, días, meses, o años. Por ejemplo, meses hasta la recaída, años desde el diagnóstico hasta el fallecimiento, semanas antes de la recurrencia de la enfermedad, días desde el inicio del tratamiento al exito del tratamiento, años hasta el inicio de abuso de sustancias.
+
+En esta sesión abordaremos 2 de las principales técnicas para realizar análisis de supervivencia:
+
+-   Análisis de supervivencia usando el método de Kaplan-Meier
+-   Regresión de riesgos proporcionales (PH) de Cox
+
+## 1.1 Censura
+
+Una característica clave en datos de supervivencia es la censura para un participante (una observación). La censura de un participante puede ocurrir por al menos 3 razones: 1) Perdida de seguimiento 2) Retiro del estudio 3) El evento no ocurre al término del periodo de estudio. Todos estos son ejemplos de "censura a la derecha", dado que ocurren luego del incio del estudio. Hay otros tipos de censura, menos frecuentes, pero estos no los consideraremos para esta sesión.
+
+# 2 Estimaciones de supervivencia usando el método de Kaplan-Meier
+
+## 2.1 El dataset para este ejercicio
+
+El dataset cancer_pulmon contiene datos de 418 individuos. Para el primer ejecicio haremos uso de las siguientes 3 variables:
+
+-   dias_seguimiento: tiempo de supervivencia observado en días.
+-   edad: Indica la edad de los pacientes.
+-   plaquetas: Conteo de plaquetas.
+
+Cargando el dataset almac_sangre
+
+```{r}
+cirrosis <- import(here("cirrosis.csv"))
+```
+
+Vistazo al dataset
+
+```{r}
+cirrosis_4 |> 
+  select(dias_seguimiento, cobre, etapa) |> 
+  summary()
+```
+
+```{r}
+names(cirrosis_4)
+```
+
+## 2.2 El desenlace en el análisis de supervivencia
+
+Kaplan-Meier estima la probabilidad de supervivencia para distintos puntos de tiempo. En R, usamos la función `Surv()` para crear la variable "respuesta" o desenlace. Este tipo de desenlace incluye a su vez estado del participante (con el evento o sin el evento) y tiempo.
+
+```{r}
+Surv(cirrosis_4$edad,cirrosis_4$trigliceridos)
+```
+
+```{r}
+km = survfit(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4)
+
+```
+
+¿Qué hay dentro del objeto km?
+
+```{r}
+str(km)
+```
+
+## 2.3 Gráficos de Kaplan-Meier
+
+La información contenida en el objeto creado con las estimaciones puede ser mejor visualizada en los gráficos de Kaplan-Meier.
+
+```{r}
+survfit2(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4) |>  
+  ggsurvfit() +
+  labs(
+    x = "Días",
+    y = "Probabilidad de supervivencia"
+  ) +
+  add_censor_mark()
+```
+
+La función `add_confidence_interval()` añade los intervalos de confianza al 95% (sombreado en gris) para las estimaciones de probabilidad de supervivencia.
+
+```{r}
+survfit2(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4) |>  
+  ggsurvfit() +
+  labs(
+    x = "Días",
+    y = "Probabilidad de supervivencia"
+  ) + 
+  add_censor_mark() +
+  add_confidence_interval() +
+  add_risktable()
+```
+
+**¿Cómo interpretar?**
+
+En la gráfica de Kaplan-Meier generada a partir de los datos de pacientes con cáncer de pulmón, se muestra la probabilidad de supervivencia global a lo largo del tiempo (días). La curva es escalonada, ya que representa una función de supervivencia estimada por intervalos de tiempo; cada escalón indica la ocurrencia de un evento (fallecimiento), reduciendo la probabilidad acumulada de supervivencia.
+
+Las líneas horizontales reflejan la duración de los intervalos de tiempo entre eventos, mientras que las caídas verticales indican la magnitud de la reducción en la probabilidad de supervivencia al producirse un evento. Las marcas de censura, líneas verticales (añadidas con `add_censor_mark()`), señalan a aquellos pacientes que no experimentaron el evento al final del periodo de seguimiento o que fueron retirados del estudio antes de concluir el tiempo de observación. Estos pacientes censurados no afectan la probabilidad acumulada en el momento de su censura, pero reducen el número de sujetos en riesgo en los intervalos posteriores.
+
+El intervalo de confianza del 95% (representado mediante bandas alrededor de la curva) proporciona una estimación de la incertidumbre asociada a la probabilidad de supervivencia en cada punto temporal. Nota que a medida que transcurre el tiempo, el intervalo de confianza al 95%, es más ancha, es decir, menos preciso.
+
+Finalmente, la tabla de riesgo ubicada bajo la gráfica (generada con `add_risktable()`) muestra el número de pacientes que permanecen en riesgo en distintos momentos del seguimiento, lo que facilita la interpretación de la robustez de la estimación de la curva a lo largo del tiempo.
+
+## 2.4 Estimación de la supervivencia a x años.
+
+Al analizar datos de supervivencia es común que nos preguntemos, por ejemplo, ¿Cuál es la probabilidad de supervivencia después de 1 año de seguimiento? Esto lo calculamos a partir de usar la función survfit(), añadiendo el arguemento times.
+
+```{r}
+summary(survfit(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4), times = 365.25)
+```
+
+La probabilidad de supervivencia al año de seguimiento es del 41%. Dicho de otra manera, 41% de los pacientes estuvieron vivos un año despues del inicio del estudio.
+
+```{r}
+survfit2(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4) |>
+  ggsurvfit() +
+  labs(
+    x = "Días",
+    y = "Probabilidad de supervivencia global"
+  ) + 
+  add_confidence_interval() +
+  add_risktable() +
+  add_quantile(x_value = 365.25, linewidth = .7)
+
+```
+
+### 2.5 Estimación mediana del tiempo de supervivencia
+
+Otro dato importante a estimar es la mediana de supervivencia. Típicamente, los datos de supervivencia no tendrán una distribución normal. Asi que, la mediana es preferida sobre la media aritmética.
+
+```{r}
+survfit(Surv(time, status) ~ 1, data = lung)
+```
+
+La mediana de supervivencia corresponde a la probabilidad de supervivencia de 0.5. Para este dataset, la mediana es de 310 días. En el gráfico de Kaplan Meier
+
+```{r}
+survfit2(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4) |>
+  ggsurvfit() +
+  labs(
+    x = "Días",
+    y = "Probabilidad de supervivencia"
+  ) + 
+  add_confidence_interval() +
+  add_risktable() +
+  add_quantile(y_value = 0.5, linewidth = .7)
+```
+
+## ¿Cómo reportar?
+
+Usando el paquete gtsummary podemos generar una tabla con datos de la supervivencia al año.
+
+```{r}
+names(cirrosis_4)
+```
+
+```{r}
+theme_gtsummary_language(language = "es")
+```
+
+```{r}
+survfit(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4) %>% 
+  tbl_survfit(
+    times = 365.25,
+    label_header = "**Supervivencia a 1 año (IC 95%)**"
+  )
+```
+
+```{r}
+survfit(Surv(dias_seguimiento, bilirrubina) ~ 1, data = cirrosis_4) |>  
+  tbl_survfit(
+    probs = 0.5,
+    label_header = "**Supervivencia a 1 año (IC 95%)**"
+  )
+```
+
+## 1.1 Comparando tiempos de supervivencia entre dos grupos
+
+En el conjunto de datos `cancer_pulmon` se incluyen tanto hombres como mujeres. Un análisis de interés consiste en evaluar si los tiempos de supervivencia difieren significativamente entre ambos grupos. Para ello, se utiliza la función `survdiff()`, que permite aplicar la prueba de log-rank y estimar si existen diferencias en las curvas de supervivencia.
+
+```{r}
+survdiff(Surv(dias_seguimiento, bilirrubina) ~ estado, data = cirrosis_4)
+```
+
+El valor de p = 0.001 de la prueba de log-rank indica que existe una diferencia estadísticamente significativa en la supervivencia global de varones y mujeres.
+
+El siguiente gráfico de Kaplan-meier muestra el resultado de la prueba de log-rank.
+
+```{r}
+survfit2(Surv(dias_seguimiento, bilirrubina) ~ medicamento, data = cirrosis_4) |>
+  ggsurvfit() +
+  labs(
+    x = "Días",
+    y = "Supervivencia global"
+  ) + 
+  add_confidence_interval() +
+  add_risktable() +
+  add_pvalue(caption = "Log-rank {p.value}")
+```
+
+# 3 El modelo de regresión de Cox
+
+La prueba de log-rank no ofrece una medida de efecto y solo permite evaluar una única variable independiente a la vez. Sin embargo, en investigación suele ser necesario cuantificar el tamaño del efecto de una o varias variables, e incluso realizar un análisis multivariable, aspecto que abordaremos en la siguiente sesión. Para este propósito, el modelo de regresión de Cox es una herramienta adecuada para analizar datos con desenlaces de supervivencia.
+
+En R, este modelo se puede ajustar utilizando la función `coxph()` del paquete **survival**.
+
+## 3.1 El dataset para este ejercicio
+
+El dataset para esta parte de la sesión incluye información de 213 pacientes. Entre las variables estan:
+
+-   tiempo_hosp_d: días de hospitalización
+-   estado: indica si el evento de interés esta presente (fallecido).
+-   acv_tipo - y otras covariables
+
+Cargando el dataset `acv_data`
+
+```{r}
+acv_data <- import(here("data", "s11_acv_data.csv"))
+```
+
+Usaremos a la variable tipo de ACV como la variable independiente de interés
+
+```{r}
+coxph(Surv(tiempo, estado == "Fallecido") ~ acv_tipo, data = acv_data)
+```
+
+## 3.2 Interpretación y reporte
+
+Entre los resultados, el valor p indica que existe una asociación estadísticamente significativa entre la covariable tipo de ACV y el fallecimiento. Sin embargo, el coeficiente y su intervalo de confianza al 95%, ambos en escala exponenciada, son las medidas de interés y son las que se reportan en un informe científico. Estas tablas de resultados pueden obtenerse con la función `tbl_regression()` del paquete gtsummary, utilizando la opción `exponentiate = TRUE` para mostrar la razón de riesgos (hazard ratio, HR) en lugar del logaritmo del riesgo.
+
+```{r}
+coxph(Surv(tiempo, estado == "Fallecido") ~ acv_tipo, data = acv_data) %>% 
+  tbl_regression(exp = TRUE) 
+```
+
+En esta tabla, el HR representa la razón de tasas de ocurrencia del evento entre dos grupos en un momento dado. Se interpreta como la tasa instantánea de ocurrencia del evento en aquellos que aún están en riesgo. Una HR \< 1 indica una menor tasa de ocurrencia del evento (por ejemplo, muerte), mientras que una HR \> 1 indica una tasa mayor. En la presente tabla, una HR = 0.52 implica que, en cualquier momento, las personas con ACV isquémico presentan una tasa de fallecimiento equivalente al 52% de la de las personas con ACV hemorrágico. En otras palabras, las personas con ACV isquémico tienen un riesgo instantáneo de muerte significativamente menor que las personas con ACV hemorrágico, según nuestro dataset.
+
+### 3.3 Reporte para multiple variables
+
+Es frecuente que en un estudio que incluya datos de supervivencia sea de interés evaluar multiples covariables. En R, usando la función `tbl_uvregression()` podemos generar modelos univariables simples para todas las covariables. A cambio, obtenemos la HR cruda para todas las covariables de interés.
+
+```{r}
+tabla_cox <- acv_data |>
+  tbl_uvregression(
+    include = c(sexo, diabetes, glasgow, p_sistolica, p_diastolica, 
+                leuco, acv_tipo, referido_desde),
+    y = Surv(tiempo, estado == "Fallecido"),
+    method = coxph,
+    exponentiate = TRUE,
+    conf.int = TRUE,
+    hide_n = TRUE,
+    add_estimate_to_reference_rows = FALSE,
+    pvalue_fun = ~ style_pvalue(.x, digits = 3),
+    estimate_fun = ~ style_number(.x, digits = 2),
+    label = list(
+      sexo ~ "Sexo",
+      diabetes ~ "Diabetes mellitus tipo 2",
+      glasgow ~ "Escala de Coma de Glasgow",
+      p_sistolica ~ "Presión arterial sistólica (mmHg)",
+      p_diastolica ~ "Presión arterial diastólica (mmHg)",
+      leuco ~ "Recuento de glóbulos blancos (10³/μL)",
+      acv_tipo ~ "Tipo de accidente cerebrovascular",
+      referido_desde ~ "Referido desde"
+    )
+  ) |>
+  bold_p(t = 0.05) |>
+  modify_header(estimate = "**HR no ajustado**", p.value = "**Valor P**")
+```
+
+Imprimimos la tabla
+
+```{r}
+tabla_cox
+```
